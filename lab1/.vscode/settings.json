@@ -1,0 +1,16 @@
+{
+    "files.associations": {
+        "stdio.h": "c",
+        "time.h": "c",
+        "semaphore.h": "c",
+        "stat.h": "c",
+        "shm.h": "c",
+        "unistd.h": "c",
+        "constants.h": "c",
+        "mqueue.h": "c",
+        "fcntl.h": "c",
+        "stdlib.h": "c",
+        "string.h": "c",
+        "sender.h": "c"
+    }
+}
