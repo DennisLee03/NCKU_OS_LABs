@@ -2,16 +2,13 @@
 
 void send(message_t message, mailbox_t* mailbox_ptr){
     if(mailbox_ptr->flag == 1) {
-        message.len = strnlen(message.msgText, MAX_SIZE-1) + 1;
-        if (mq_send(mailbox_ptr->storage.mq_descriptor, message.msgText, message.len, 0) == -1) {
+        if (mq_send(mailbox_ptr->storage.mq_descriptor, (char*)&message, sizeof(message_t), 0) == -1) {
             perror("mq_send");
             exit(1);
         }
     } else {
         char *dst = mailbox_ptr->storage.shm_addr;
-        message.len = strnlen(message.msgText, MAX_SIZE-1);
-        memcpy(dst, message.msgText, message.len);
-        dst[message.len] = '\0';
+        memcpy(dst, &message, sizeof(message_t));
     }
 }
 
@@ -23,10 +20,9 @@ int main(int argc, char *argv[]) {
     }
     
     // get the mechanism: 1 for mq, 2 for shm
-    int ipc_comm = atoi(argv[1]);
     mailbox_t mailbox = {0};
     message_t message = {0};
-    mailbox.flag = ipc_comm;
+    mailbox.flag = atoi(argv[1]);
 
     const char *input_file = argv[2];
     FILE *file_obj = fopen(input_file, "r"); // read only
@@ -41,7 +37,7 @@ int main(int argc, char *argv[]) {
         printf("%sMessage Passing%s\n", BLUE, RESET);
         struct mq_attr attr = {
             .mq_flags = 0, // 0 for blocked
-            .mq_msgsize = MAX_SIZE,
+            .mq_msgsize = sizeof(message_t),
             .mq_maxmsg = 10
         };
         mailbox.storage.mq_descriptor = mq_open(MQ_NAME, O_CREAT|O_RDWR, 0666, &attr);
@@ -57,11 +53,11 @@ int main(int argc, char *argv[]) {
             perror("shm_open");
             exit(1);
         }
-        if(ftruncate(shm_fd, MAX_SIZE) == -1) {
+        if(ftruncate(shm_fd, sizeof(message_t)) == -1) {
             perror("ftruncate");
             exit(1);
         }
-        mailbox.storage.shm_addr = mmap(0, MAX_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, shm_fd, 0);
+        mailbox.storage.shm_addr = mmap(0, sizeof(message_t), PROT_READ|PROT_WRITE, MAP_SHARED, shm_fd, 0);
         if(mailbox.storage.shm_addr == MAP_FAILED) {
             perror("mmap");
             exit(1);
@@ -74,33 +70,46 @@ int main(int argc, char *argv[]) {
     double total_time = 0;
     struct timespec start, end;
 
-    while(fgets(message.msgText, MAX_SIZE, file_obj)) {
-        sem_wait(sender_sem);
-        
-        clock_gettime(CLOCK_MONOTONIC, &start);
-        send(message, &mailbox);
-        clock_gettime(CLOCK_MONOTONIC, &end);
+    int count = 1;
+    while(1) {
+        if(fgets(message.msgText, PAYLOAD_SIZE, file_obj)) {
+            // if !EOF
+            sem_wait(sender_sem); // sender.S-- to wait receiver next
 
-        sem_post(receiver_sem);
+            message.len = strnlen(message.msgText, PAYLOAD_SIZE-1);
+            message.mType = MSG_DATA;
 
-        total_time += (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) * 1e-9;
-        printf("%sSending message:%s %s", BLUE, RESET, message.msgText);
+            clock_gettime(CLOCK_MONOTONIC, &start);
+            send(message, &mailbox);
+            clock_gettime(CLOCK_MONOTONIC, &end);
+
+            sem_post(receiver_sem);
+
+            total_time += (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) * 1e-9;
+            printf("%sSending message[%03d]:%s %s", BLUE, count++, RESET, message.msgText);
+            //printf("%sSending message:%s %s", BLUE, RESET, message.msgText);
+        } else {
+            // if EOF, send exit message
+            sem_wait(sender_sem);
+
+            snprintf(message.msgText, PAYLOAD_SIZE, "%s", EXIT_MSG);
+            message.len = strnlen(message.msgText, PAYLOAD_SIZE-1);
+            message.mType = MSG_EXIT;
+
+            clock_gettime(CLOCK_MONOTONIC, &start);
+            send(message, &mailbox);
+            clock_gettime(CLOCK_MONOTONIC, &end);
+
+            sem_post(receiver_sem);
+            total_time += (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) * 1e-9;
+            break;
+        }
     }
     printf("\n");
-
-    fclose(file_obj);
-
-    // send exit message
-    snprintf(message.msgText, MAX_SIZE, "%s", EXIT_MSG);
-    sem_wait(sender_sem); // sender.S-- to wait receiver next
-    clock_gettime(CLOCK_MONOTONIC, &start);
-    send(message, &mailbox);
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    sem_post(receiver_sem);
-    total_time += (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) * 1e-9;
-
     printf("%sEnd of input file! exit!%s\n", RED, RESET);
     printf("Total time taken in sending msg: %f s\n", total_time);
+
+    fclose(file_obj);
 
     if(mailbox.flag == 1) {
         // close message queue
@@ -108,7 +117,7 @@ int main(int argc, char *argv[]) {
         mq_unlink(MQ_NAME);
     } else {
         // close shared memory
-        munmap(mailbox.storage.shm_addr, MAX_SIZE);
+        munmap(mailbox.storage.shm_addr, sizeof(message_t));
         shm_unlink(SHM_NAME);
     }
 

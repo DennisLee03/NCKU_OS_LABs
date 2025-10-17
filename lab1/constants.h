@@ -4,8 +4,10 @@
 #define SHM_NAME "/lab1_shm"
 #define SENDER_SEM_NAME "/sender_sem"
 #define RECEIVER_SEM_NAME "/receiver_sem"
-#define MAX_SIZE 1025
+#define PAYLOAD_SIZE 1025
 #define EXIT_MSG "EXIT"
+#define MSG_DATA 1
+#define MSG_EXIT 0
 
 #define RED "\033[0;31m"
 #define BLUE "\033[0;34m"

@@ -30,7 +30,7 @@ typedef struct {
 typedef struct {
     long mType;
     int len;
-    char msgText[MAX_SIZE];
+    char msgText[PAYLOAD_SIZE];
 } message_t;
 
 void receive(message_t* message_ptr, mailbox_t* mailbox_ptr);

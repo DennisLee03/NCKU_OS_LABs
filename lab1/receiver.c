@@ -4,8 +4,8 @@ void receive(message_t* message_ptr, mailbox_t* mailbox_ptr){
     if(mailbox_ptr->flag == 1) {
         ssize_t bytes_read = mq_receive(
             mailbox_ptr->storage.mq_descriptor, 
-            message_ptr->msgText,
-            MAX_SIZE, 
+            (char*)message_ptr,
+            sizeof(message_t), 
             NULL
         );
         if(bytes_read == -1) {
@@ -14,9 +14,7 @@ void receive(message_t* message_ptr, mailbox_t* mailbox_ptr){
         }
     } else {
         char *src = mailbox_ptr->storage.shm_addr;
-        message_ptr->len = strnlen(src, MAX_SIZE-1);
-        strncpy(message_ptr->msgText, src, message_ptr->len);
-        message_ptr->msgText[message_ptr->len] = '\0';
+        memcpy(message_ptr, src, sizeof(message_t));
     }
 }
 
@@ -28,10 +26,9 @@ int main(int argc, char *argv[]) {
     }
 
     // get the mechanism: 1 for mq, 2 for shm
-    int ipc_comm = atoi(argv[1]);
     mailbox_t mailbox = {0};
     message_t message = {0};
-    mailbox.flag = ipc_comm;
+    mailbox.flag = atoi(argv[1]);
 
     // setup mailbox
     if(mailbox.flag == 1) {
@@ -50,7 +47,7 @@ int main(int argc, char *argv[]) {
             perror("shm_open");
             exit(1);
         }
-        mailbox.storage.shm_addr = mmap(0, MAX_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, shm_fd, 0);
+        mailbox.storage.shm_addr = mmap(0, sizeof(message_t), PROT_READ|PROT_WRITE, MAP_SHARED, shm_fd, 0);
         if(mailbox.storage.shm_addr == MAP_FAILED) {
             perror("mmap");
             exit(1);
@@ -63,6 +60,7 @@ int main(int argc, char *argv[]) {
     double total_time = 0;
     struct timespec start, end;
 
+    int count = 1;
     while(1) {
         sem_wait(receiver_sem);
 
@@ -73,8 +71,9 @@ int main(int argc, char *argv[]) {
         sem_post(sender_sem);
         total_time += (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) * 1e-9;
         
-        if(strcmp(message.msgText, EXIT_MSG) == 0) break;
+        if(message.mType == MSG_EXIT) break;
 
+        //printf("%sReceiving message[%03d]:%s %s", BLUE, count++, RESET, message.msgText);
         printf("%sReceiving message:%s %s", BLUE, RESET, message.msgText);
     }
     printf("\n");
@@ -86,7 +85,7 @@ int main(int argc, char *argv[]) {
         mq_close(mailbox.storage.mq_descriptor);
     } else {
         // close shared memory
-        munmap(mailbox.storage.shm_addr, MAX_SIZE);
+        munmap(mailbox.storage.shm_addr, PAYLOAD_SIZE);
     }
 
     sem_close(sender_sem);
