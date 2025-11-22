@@ -9,7 +9,7 @@
 #include "../include/command.h"
 #include "../include/builtin.h"
 
-int debug = 1;
+int debug = 0;
 
 // ======================= requirement 2.3 =======================
 /**

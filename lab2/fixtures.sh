@@ -1,5 +1,5 @@
 #!/bin/bash
-cat > demo.txt <<'EOF'
+cat > demo_x.txt <<'EOF'
 OS lab is fun.
 grep this line.
 Pipeline tests with tail and head.
