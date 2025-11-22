@@ -16,5 +16,6 @@ $(TARGET): my_shell.c $(OBJ)
 .PHONY: clean
 clean:
 	rm -f ${TARGET} *.o out*
+	rm ./*.txt ./*.log
 clean_obj:
 	rm -f ./*.o

@@ -7,7 +7,7 @@ int searchBuiltInCommand(struct cmd_node *cmd);
 int execBuiltInCommand(int status,struct cmd_node *cmd);
 
 int pwd(char **args);
-int help(char **args);
+int help(char **args); 
 int cd(char **args);
 int echo(char **args);
 int exit_shell(char **args);

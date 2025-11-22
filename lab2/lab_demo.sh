@@ -1,0 +1,8 @@
+#!/bin/bash
+cat > demo.txt <<'EOF'
+Today is os' Day.
+I am a student in CSIE. 
+I love os, you love os.
+I am going to score 100 point.
+Have a nice os' Day.
+EOF

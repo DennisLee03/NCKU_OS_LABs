@@ -9,7 +9,7 @@
 #include "../include/command.h"
 #include "../include/builtin.h"
 
-int debug = 0;
+int debug = 1;
 
 // ======================= requirement 2.3 =======================
 /**
@@ -23,20 +23,6 @@ int debug = 0;
  */
 void redirection(struct cmd_node *p){
 
-	/*
-		fprintf(stderr, "=========== prev I/O info ==========\n");
-		fprintf(stderr, "[cmd]: %s\n", p->args[0]);
-		if(p->in_file) {
-			fprintf(stderr, "input-file\n");
-		}
-		if(p->out_file) {
-			fprintf(stderr, "output-file\n");
-		}
-		fprintf(stderr, "%d -> write-end{pipe(3), file(5)}\n", p->out);
-		fprintf(stderr, "%d -> read-end{pipe(4), file(5)}\n", p->in);
-		fprintf(stderr, "====================================\n");
-	*/
-
 	if (p->in_file) {
         int fd = open(p->in_file, O_RDONLY);
         if (fd == -1) {
@@ -45,7 +31,7 @@ void redirection(struct cmd_node *p){
         }
         dup2(fd, STDIN_FILENO);
 		p->in = fd;
-		//fprintf(stderr,"dup input file\n");
+		if(debug) fprintf(stderr,"dup input file\n");
         close(fd);
     } else if (p->in != STDIN_FILENO) {
         if (dup2(p->in, STDIN_FILENO) == -1) { 
@@ -53,7 +39,7 @@ void redirection(struct cmd_node *p){
 			exit(EXIT_FAILURE); 
 		}
         close(p->in);
-		//fprintf(stderr,"dup read_end\n");
+		if(debug) fprintf(stderr,"dup read_end\n");
     }
 
     if (p->out_file) {
@@ -64,30 +50,30 @@ void redirection(struct cmd_node *p){
         }
 		p->out = fd;
         dup2(fd, STDOUT_FILENO);
-		//fprintf(stderr,"dup output file\n");
         close(fd);
+		if(debug) fprintf(stderr,"dup output file\n");
     } else if(p->out != STDOUT_FILENO) {
 		if (dup2(p->out, STDOUT_FILENO) == -1) { 
 			perror("dup2 p_out"); 
 			exit(EXIT_FAILURE); 
 		}
         close(p->out);
-		//fprintf(stderr, "dup write_end\n");
+		if(debug) fprintf(stderr, "dup write_end\n");
 	}
 
-	/*
+	if(debug) {
 		fprintf(stderr, "=========== curr I/O info ==========\n");
 		fprintf(stderr, "[cmd]: %s\n", p->args[0]);
 		if(p->in_file) {
-			fprintf(stderr, "input-file\n");
+			fprintf(stderr, "input-file(%s)\n", p->in_file);
 		}
 		if(p->out_file) {
-			fprintf(stderr, "output-file\n");
+			fprintf(stderr, "output-file(%s)\n", p->out_file);
 		}
 		fprintf(stderr, "%d -> write-end{pipe(3), file(5)}\n", p->out);
 		fprintf(stderr, "%d -> read-end{pipe(4), file(5)}\n", p->in);
 		fprintf(stderr, "====================================\n");
-	*/
+	}
 }
 // ===============================================================
 
@@ -117,10 +103,6 @@ int spawn_proc(struct cmd_node *p)
 		 * child has its own fd table to manage files
 		 */
 		redirection(p);
-
-		if(debug){
-			exit(0);
-		}
 
 		int status = execvp(p->args[0], p->args); 
 		if(status == -1) {
@@ -175,7 +157,27 @@ int fork_cmd_node(struct cmd *cmd)
 		// ========================================
 
 
-		spawn_proc(p);
+		int status = searchBuiltInCommand(p);
+		if (status != -1) {
+			// build-in commands
+			/**
+			 * help: only stdout
+			 * pwd: only stdout
+			 * cd: no I/O
+			 * echo: only stdout
+			 *       @todo: "echo -n hello > tmp.txt"
+			 * record: only stdout
+			 * exit: no I/O
+			 */
+
+			// only have to consider stdout to pipe
+			redirection(p);
+			status = execBuiltInCommand(status, p);
+		}
+		else{
+			// external command
+			status = spawn_proc(p);
+		}
 
 		if(debug) {
 			fprintf(stderr, "[%s]: p_in(%d), p_out(%d)\n", p->args[0] ,p->in, p->out);
@@ -195,6 +197,8 @@ int fork_cmd_node(struct cmd *cmd)
 		p = p->next;
 	}
 	
+	close(in);
+	close(out);
 	
 	return 1;
 }
@@ -226,14 +230,23 @@ void shell()
 				int in = dup(STDIN_FILENO), out = dup(STDOUT_FILENO);
 				if( (in == -1) | (out == -1))
 					perror("dup");
+
+				// build-in commands
+				/**
+				 * help: only stdout
+				 * pwd: only stdout
+				 * cd: no I/O
+				 * echo: only stdout
+				 *       @todo: "echo -n hello > tmp.txt"
+				 * record: only stdout
+				 * exit: no I/O
+				 */
 				redirection(temp);
 				status = execBuiltInCommand(status,temp);
 
 				// recover shell stdin and stdout
 				if (temp->in_file)  dup2(in, 0);
-				if (temp->out_file){
-					dup2(out, 1);
-				}
+				if (temp->out_file) dup2(out, 1);
 				close(in);
 				close(out);
 			}
