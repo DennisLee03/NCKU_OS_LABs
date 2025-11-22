@@ -2,3 +2,5 @@
 names.txt
 sender
 receiver
+*.o
+*.txt

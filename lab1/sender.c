@@ -86,8 +86,8 @@ int main(int argc, char *argv[]) {
             sem_post(receiver_sem);
 
             total_time += (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) * 1e-9;
-            printf("%sSending message[%03d]:%s %s", BLUE, count++, RESET, message.msgText);
-            //printf("%sSending message:%s %s", BLUE, RESET, message.msgText);
+            //printf("%sSending message[%03d]:%s %s", BLUE, count++, RESET, message.msgText);
+            printf("%sSending message:%s %s", BLUE, RESET, message.msgText);
         } else {
             // if EOF, send exit message
             sem_wait(sender_sem);
