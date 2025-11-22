@@ -17,4 +17,4 @@ $(TARGET): my_shell.c $(OBJ)
 clean:
 	rm -f ${TARGET} *.o out*
 clean_obj:
-	rm -f *.o
+	rm -f ./*.o
