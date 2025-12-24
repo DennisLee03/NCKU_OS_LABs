@@ -9,7 +9,7 @@ int init_module(void)
     pr_info("Hello world 1.\n");
 
     /* A nonzero return means init_module failed; module can't be loaded. */
-    return -1;
+    return 0;
 }
 
 void cleanup_module(void)
