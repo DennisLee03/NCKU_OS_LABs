@@ -14,11 +14,38 @@ static ssize_t Mywrite(struct file *fileptr, const char __user *ubuf, size_t buf
 	return 0;
 }
 
-
+/**
+ * @brief when trigger a read of the procfile, this function is called.
+ * 
+ * @param fileptr    procfile
+ * @param ubuf       string to user space
+ * @param buffer_len how many bytes can be sended to user space, for instance: fgets(buffer, sizeof(buffer), fptr4)
+ * @param offset     r/w head, offset > 0 means we finish this read, so do nothing
+ *
+ * @return           #bytes read
+ */
 static ssize_t Myread(struct file *fileptr, char __user *ubuf, size_t buffer_len, loff_t *offset){
-    /*Your code here*/
 
-    /****************/
+    // when EOF, directly return, prevent infinite reads
+    if (*offset > 0) return 0;
+
+    // parse threads' info
+    struct task_struct *thread;
+    for_each_thread(current, thread) {
+        if (current->pid == thread->pid) {
+            continue;
+        }
+        *offset += sprintf(&buf[*offset], "PID: %d, TID: %d, Priority: %d, State: %d\n",
+                          current->pid, thread->pid, thread->prio, thread->__state);
+    }
+
+    // send info to user space
+    if (copy_to_user(ubuf, buf, buffer_len)) {
+        pr_info("copy_to_user failed.\n");
+        return -EFAULT;
+    }
+
+    return *offset > buffer_len ? *offset : buffer_len;
 }
 
 static struct proc_ops Myops = {

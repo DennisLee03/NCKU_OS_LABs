@@ -70,6 +70,8 @@ void *thread2(void *arg){
 int main(){
     ssize_t bytesRead;
     char buffer[50];
+
+    // =============== prepare matrices spaces ===============
     x = malloc(sizeof(int*)*matrix_row_x);
     for(int i=0; i<matrix_row_x; i++){
         x[i] = malloc(sizeof(int)*matrix_col_x);
@@ -82,29 +84,46 @@ int main(){
     for(int i=0; i<matrix_row_x; i++){
         z[i] = malloc(sizeof(int)*matrix_col_y);
     }
-    fptr1 = fopen("m1.txt", "r");
-    fptr2 = fopen("m2.txt", "r");
-    fptr3 = fopen("3_1.txt", "a");
-    fptr4 = fopen("/proc/Mythread_info", "r");
-    fptr5 = fopen("/proc/Mythread_info", "r");
+    // =======================================================
+
+    // ===================== open files =====================
+    fptr1 = fopen("m1.txt", "r");              // mat 2
+    fptr2 = fopen("m2.txt", "r");              // mat 1
+    fptr3 = fopen("3_1.txt", "a");             // result mat
+    fptr4 = fopen("/proc/Mythread_info", "r"); // procfile
+    fptr5 = fopen("/proc/Mythread_info", "r"); // procfile
+    // ======================================================
 
     pthread_t t1, t2;
+
+    // fill arrays from .txt
     data_processing();
+
+    // fill the dimension for result mat
     fprintf(fptr3, "%d %d\n", matrix_row_x, matrix_col_y);
 
+    // threads do their works
     pthread_create(&t1, NULL, thread1, NULL);
     pthread_create(&t2, NULL, thread2, NULL);
+
+    // read from procfile and print message
     while (fgets(buffer, sizeof(buffer), fptr4) != NULL){
         printf("%s", buffer);
     }
+
+    // wait for threads
     pthread_join(t1, NULL);
     pthread_join(t2, NULL);
+
+    // write result mat
     for(int i=0; i<matrix_row_x; i++){
         for(int j=0; j<matrix_col_y; j++){
             fprintf(fptr3, "%d ", z[i][j]);
             if(j==matrix_col_y-1) fprintf(fptr3, "\n");   
         }
     }
+
+    // close files
     fclose(fptr1);
     fclose(fptr2);
     fclose(fptr3);
