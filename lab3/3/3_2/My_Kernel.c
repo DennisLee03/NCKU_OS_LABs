@@ -10,6 +10,8 @@
 #define BUFSIZE 1024
 char buf[BUFSIZE];  // kernel buffer
 
+static struct proc_dir_entry *my_proc_file;
+
 /**
  * @brief            when trigger a write of the procfile, this function is called.
  * 
@@ -23,7 +25,10 @@ char buf[BUFSIZE];  // kernel buffer
 static ssize_t Mywrite(struct file *fileptr, const char __user *ubuf, size_t buffer_len, loff_t *offset) {
     int k_len = strlen(buf);
 
-    if (copy_from_user(&buf[k_len], ubuf, buffer_len)) return -EFAULT;
+    if (copy_from_user(&buf[k_len], ubuf, buffer_len)) {
+        pr_info("copy_from_user failed.\n");
+        return -EFAULT;
+    }
     k_len += buffer_len;
 
     k_len += sprintf(&buf[k_len], "PID: %d, TID: %d, Time: %llu\n", current->tgid, current->pid, current->utime / 100 / 1000);
@@ -44,9 +49,15 @@ static ssize_t Mywrite(struct file *fileptr, const char __user *ubuf, size_t buf
 static ssize_t Myread(struct file *fileptr, char __user *ubuf, size_t ubuffer_len, loff_t *offset) {
     if(*offset > 0) return 0;
 
-    if (copy_to_user(ubuf, buf, strlen(buf))) return -EFAULT;
+    if (copy_to_user(ubuf, buf, strlen(buf))) {
+        pr_info("copy_to_user failed.\n");
+        return -EFAULT;
+    }
 
     *offset = strlen(buf);
+    
+    // after a read, clear kernel buffer
+    memset(buf, 0, sizeof(buf));
 
     return *offset;
 }
@@ -57,12 +68,14 @@ static struct proc_ops Myops = {
 };
 
 static int My_Kernel_Init(void) {
-    proc_create(procfs_name, 0644, NULL, &Myops);
+    memset(buf, 0, BUFSIZE);
+    my_proc_file = proc_create(procfs_name, 0644, NULL, &Myops);
     pr_info("My kernel says Hi");
     return 0;
 }
 
 static void My_Kernel_Exit(void) {
+    proc_remove(my_proc_file);
     pr_info("My kernel says GOODBYE");
 }
 

@@ -9,6 +9,8 @@
 #define BUFSIZE  1024
 char buf[BUFSIZE];
 
+static struct proc_dir_entry *my_proc_file;
+
 static ssize_t Mywrite(struct file *fileptr, const char __user *ubuf, size_t buffer_len, loff_t *offset){
     /* Do nothing */
 	return 0;
@@ -45,6 +47,9 @@ static ssize_t Myread(struct file *fileptr, char __user *ubuf, size_t buffer_len
         return -EFAULT;
     }
 
+    // after a read, clear kernel buffer
+    memset(buf, 0, sizeof(buf));
+
     return *offset;
 }
 
@@ -54,12 +59,14 @@ static struct proc_ops Myops = {
 };
 
 static int My_Kernel_Init(void){
-    proc_create(procfs_name, 0644, NULL, &Myops);   
+    memset(buf, 0, BUFSIZE);
+    my_proc_file = proc_create(procfs_name, 0644, NULL, &Myops);   
     pr_info("My kernel says Hi");
     return 0;
 }
 
 static void My_Kernel_Exit(void){
+    proc_remove(my_proc_file);
     pr_info("My kernel says GOODBYE");
 }
 

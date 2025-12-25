@@ -99,6 +99,20 @@ static ssize_t Myread(struct file *fileptr, char __user *ubuf, size_t buffer_len
 * `proc_read(struct file *fileptr, char __user *ubuf, size_t buffer_len, loff_t *offset)`
     * 其中的 `offset` 很重要，當 read_process(例如 `cat`) 在讀 procfile 時，這個 `offset` 是這個 read_process 在 maintain 的，所以要傳指標進來使得 read_process 終能接收到 `offset` 的更新
     * 這個 `offset` 就像是 read_process 的 r/w head，所以 read_process 當啟動時 r/w head = 0，而像是 cat 之類的 read_process 會反覆讀讀到 EOF 才會停止(此時 r/w head > 0)，而 `proc_read()` 執行完一次就相當於完成讀寫，就要回傳 EOF(0) 給 read_process 了，所以才會在一開始檢查 `offset`
+* 清空 kernel buffer 跟 procfile，很重要
+    ```C
+    static int My_Kernel_Init(void) {
+        memset(buf, 0, BUFSIZE);
+        my_proc_file = proc_create(procfs_name, 0644, NULL, &Myops);
+        pr_info("My kernel says Hi");
+        return 0;
+    }
+
+    static void My_Kernel_Exit(void) {
+        proc_remove(my_proc_file);
+        pr_info("My kernel says GOODBYE");
+    }
+    ```
 
 ## Extra
 ### Index Node
