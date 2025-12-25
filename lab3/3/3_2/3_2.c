@@ -13,6 +13,8 @@
 #define matrix_row_y 250
 #define matrix_col_y 1234
 
+pthread_spinlock_t lock;
+
 FILE *fptr1;
 FILE *fptr2;
 FILE *fptr3;
@@ -51,7 +53,7 @@ void data_processing(void){
 
 void *thread1(void *arg){
     char data[30];
-    sprintf(data, "%s", "Thread 1 says hello!");
+    sprintf(data, "%s", "Thread 1 says hello!\n");
 
 #if (THREAD_NUMBER == 1)
     for(int i=0; i<matrix_row_x; i++){
@@ -72,21 +74,23 @@ void *thread1(void *arg){
 #endif
 
     /*YOUR CODE HERE*/
-    /* Hint: Write data into proc file.*/
-
-    /****************/ 
+    pthread_spin_lock(&lock);
+    FILE *fd = fopen("/proc/Mythread_info", "w");
+    fwrite(data, sizeof(char), strlen(data), fd);
+    fclose(fd);
 
     char buffer[50]; 
     while (fgets(buffer, sizeof(buffer), fptr4) != NULL){
         printf("%s", buffer);
     }
+    pthread_spin_unlock(&lock);
 }
 
 
 #if (THREAD_NUMBER == 2)
 void *thread2(void *arg){
     char data[30];
-    sprintf(data, "%s", "Thread 2 says hello!");
+    sprintf(data, "%s", "Thread 2 says hello!\n");
     for(int i=matrix_row_x/2; i<matrix_row_x; i++){
         for(int j=0; j<matrix_col_y; j++){
             for(int k=0; k<matrix_row_y; k++){
@@ -96,14 +100,16 @@ void *thread2(void *arg){
     }
     
     /*YOUR CODE HERE*/
-    /* Hint: Write data into proc file.*/
-
-    /****************/   
+    pthread_spin_lock(&lock);
+    FILE *fd = fopen("/proc/Mythread_info", "w");
+    fwrite(data, sizeof(char), strlen(data), fd);
+    fclose(fd);
 
     char buffer[50]; 
     while (fgets(buffer, sizeof(buffer), fptr5) != NULL){
         printf("%s", buffer);
     } 
+    pthread_spin_unlock(&lock);
 }
 #endif
 
@@ -131,12 +137,18 @@ int main(){
     data_processing();
     fprintf(fptr3, "%d %d\n", matrix_row_x, matrix_col_y);
 
+    pthread_spin_init(&lock, 0);
+    
     pthread_create(&t1, NULL, thread1, NULL);
 #if (THREAD_NUMBER==2)
     pthread_create(&t2, NULL, thread2, NULL);
 #endif
     pthread_join(t1, NULL);
+#if (THREAD_NUMBER==2)
     pthread_join(t2, NULL);
+#endif
+
+    pthread_spin_destroy(&lock);
 
     for(int i=0; i<matrix_row_x; i++){
         for(int j=0; j<matrix_col_y; j++){

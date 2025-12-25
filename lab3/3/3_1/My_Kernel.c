@@ -15,7 +15,7 @@ static ssize_t Mywrite(struct file *fileptr, const char __user *ubuf, size_t buf
 }
 
 /**
- * @brief when trigger a read of the procfile, this function is called.
+ * @brief            when trigger a read of the procfile, this function is called.
  * 
  * @param fileptr    procfile
  * @param ubuf       string to user space
@@ -40,12 +40,12 @@ static ssize_t Myread(struct file *fileptr, char __user *ubuf, size_t buffer_len
     }
 
     // send info to user space
-    if (copy_to_user(ubuf, buf, buffer_len)) {
+    if (copy_to_user(ubuf, buf, *offset)) {
         pr_info("copy_to_user failed.\n");
         return -EFAULT;
     }
 
-    return *offset > buffer_len ? *offset : buffer_len;
+    return *offset;
 }
 
 static struct proc_ops Myops = {
